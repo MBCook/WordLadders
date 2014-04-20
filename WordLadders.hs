@@ -1,3 +1,8 @@
+-- Based on go-doublet by Nathan Smith
+-- https://github.com/neocortical/go-doublet
+
+-- Ported as my first Haskell program
+
 import System.IO						-- For file loading
 import Data.List						-- We want foldl'
 import Data.Char						-- To get toLower and isSpace
@@ -53,3 +58,86 @@ createWordGraph :: WordDictionary -> WordGraph
 createWordGraph dict = foldl' insertWord Map.empty $ Set.toList dict
 	where
 		insertWord map word = Map.insert word (neighboringWords word dict) map
+		
+------------------ The A* Implementation ------------------
+
+data Node = Node {
+					word :: String,
+					currentCost :: Int,
+					guessedCost :: Int,
+					previous :: Maybe Node
+				} deriving (Show)
+
+-- Sum up the two costs on a node so we can order things the way we want
+fullCost :: Node -> Int
+fullCost a = currentCost a + guessedCost a
+
+-- Make it so we can order Nodes
+instance Ord Node where
+	compare a b = compare (fullCost a) (fullCost b)
+
+-- And to do that, we must be able to check equality on Nodes
+instance Eq Node where
+	(==) a b = (word a) == (word b)
+
+-- Give a basic estimate of the 'distance' between two words based on characters that differ
+roughDistance :: String -> String -> Int
+roughDistance [] _		= 0								-- When string one is done, we're done
+roughDistance (x:xs) (y:ys)
+	| x == y	= roughDistance xs ys					-- If they're the same, distance doesn't change
+	| otherwise	= 1 + roughDistance xs ys
+
+-- Given a final node, reconstruct the words in the path
+reconstructPath :: Node -> [String]
+reconstructPath Node {word = w, previous = Just p}	= w : reconstructPath p
+reconstructPath Node {word = w}						= [w]
+
+-- The open set is just a list of Nodes we're still considering in priority order (lowest to highest cost)
+type OpenSet = [Node]
+
+-- Closed set is the words we've already checked, this will save us a little typing
+type ClosedSet = Set.Set String
+
+-- A simple bootstrap function for the A* implementation
+-- It sets up the initial node for the search
+findPath :: String -> String -> WordDictionary -> WordGraph -> Maybe [String]
+findPath startWord endWord dict graph = aStar endWord openSet closedSet dict graph
+	where
+		ourNode = Node startWord 0 (roughDistance startWord endWord) Nothing
+		openSet = [ourNode]
+		closedSet = Set.empty
+
+-- Update the open set with the given node, useful to let us fold new words in
+updateOpenSet :: String -> Int -> OpenSet -> Node -> OpenSet
+updateOpenSet endWord curretnCost open node 
+	| existingNode == Nothing								-- Never seen it, add it to the queue in the right place
+			= insert node open
+	| tentativeCost < currentCost (fromJust existingNode)	-- We cost less, swap us in
+			= insert node withoutExisting
+	| otherwise												-- We cost more, don't modify the open set
+			= open
+	where
+		existingNode = find (node ==) open					-- Lowest scoring version of our word
+		withoutExisting = filter (node /=) open				-- Queue without the word in question
+		tentativeCost = currentCost node + 1				-- Since we move by one letter, cost just increments
+
+-- Convert a list of words into a list of Nodes given the endWord, neighboring words, and the current node
+neighboringNodes :: String -> [String] -> Node -> [Node]
+neighboringNodes _ [] _ = []
+neighboringNodes endWord (w:ws) node = newNode : neighboringNodes endWord ws node
+	where
+		newNode = Node w (currentCost node + 1) (roughDistance w $word node) $ Just node
+
+-- The actual A* implementation we use, (naively) converted to be functional by me
+aStar :: String -> OpenSet -> ClosedSet -> WordDictionary -> WordGraph -> Maybe [String]
+aStar endWord [] _ _ _	= Nothing														-- Couldn't find it, so nothing
+aStar endWord q@(n @ Node {word = w, currentCost = c}:ns) closed dict graph				-- Our queue still has stuff in it
+	| w == endWord			= Just $ reconstructPath n									-- Found the word, return the path
+	| neighborWords == []	= aStar endWord ns updatedClosed dict graph					-- Recurse knowing this word was a dead end
+	| otherwise				= aStar endWord withNeighbors updatedClosed dict graph		-- Add the neighbors to the priority queue
+	where 
+		neighborWords = filter (flip Set.notMember closed) $ neighboringWords w dict	-- Unchecked neighboring words
+		neighborNodes = neighboringNodes endWord neighborWords n						-- Those words as nodes
+		withNeighbors = foldl' (updateOpenSet endWord c) q neighborNodes				-- Updated open set with new neighbors
+		updatedClosed = Set.insert w closed												-- Closed set with the word we just checked
+	
