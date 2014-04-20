@@ -89,7 +89,7 @@ roughDistance (x:xs) (y:ys)
 
 -- Given a final node, reconstruct the words in the path
 reconstructPath :: Node -> [String]
-reconstructPath Node {word = w, previous = Just p}	= w : reconstructPath p
+reconstructPath Node {word = w, previous = Just p}	= reconstructPath p ++ [w]
 reconstructPath Node {word = w}						= [w]
 
 -- The open set is just a list of Nodes we're still considering in priority order (lowest to highest cost)
@@ -138,6 +138,6 @@ aStar endWord q@(n @ Node {word = w, currentCost = c}:ns) closed dict graph				-
 	where 
 		neighborWords = filter (flip Set.notMember closed) $ neighboringWords w dict	-- Unchecked neighboring words
 		neighborNodes = neighboringNodes endWord neighborWords n						-- Those words as nodes
-		withNeighbors = foldl' (updateOpenSet endWord c) q neighborNodes				-- Updated open set with new neighbors
+		withNeighbors = foldl' (updateOpenSet endWord c) ns neighborNodes				-- Updated open set with new neighbors
 		updatedClosed = Set.insert w closed												-- Closed set with the word we just checked
 	
