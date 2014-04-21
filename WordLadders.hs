@@ -151,7 +151,7 @@ getTwoWords :: WordDictionary -> WordGraph -> IO ()
 getTwoWords dict graph = do
 	putStrLn "Enter two words: "												-- I can't get this to flush without putStrLn
 	typedLine <- getLine														-- Read the input and separate it into words
-	let ourWords = words typedLine
+	let ourWords = words $ map toLower typedLine
 	case ourWords of
 		[]			-> return ()												-- Program is done when they don't enter words
 		(x:y:z)		-> runWithTwoWords dict graph x y							-- Try the words they gave us (ignore extra)
