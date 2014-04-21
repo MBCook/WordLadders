@@ -4,6 +4,7 @@
 -- Ported as my first Haskell program
 
 import System.IO						-- For file loading
+import System.CPUTime					-- So we can know how long things take
 import Data.List						-- We want foldl'
 import Data.Char						-- To get toLower and isSpace
 import Data.Maybe						-- To make Maybe handling easier
@@ -108,6 +109,7 @@ findPath startWord endWord dict graph = aStar endWord openSet closedSet dict gra
 		closedSet = Set.empty
 
 -- Update the open set with the given node, useful to let us fold new words in
+-- If it's new, insert it. If it's a duplicate, replace the old node if the cost is lower
 updateOpenSet :: String -> Int -> OpenSet -> Node -> OpenSet
 updateOpenSet endWord curretnCost open node 
 	| existingNode == Nothing								-- Never seen it, add it to the queue in the right place
@@ -129,6 +131,7 @@ neighboringNodes endWord (w:ws) node = newNode : neighboringNodes endWord ws nod
 		newNode = Node w (currentCost node + 1) (roughDistance w $word node) $ Just node
 
 -- The actual A* implementation we use, (naively) converted to be functional by me
+-- q is a list of nodes in priority order to check, closed is a set of words we've already been through 
 aStar :: String -> OpenSet -> ClosedSet -> WordDictionary -> WordGraph -> Maybe [String]
 aStar endWord [] _ _ _	= Nothing														-- Couldn't find it, so nothing
 aStar endWord q@(n @ Node {word = w, currentCost = c}:ns) closed dict graph				-- Our queue still has stuff in it
@@ -140,4 +143,63 @@ aStar endWord q@(n @ Node {word = w, currentCost = c}:ns) closed dict graph				-
 		neighborNodes = neighboringNodes endWord neighborWords n						-- Those words as nodes
 		withNeighbors = foldl' (updateOpenSet endWord c) ns neighborNodes				-- Updated open set with new neighbors
 		updatedClosed = Set.insert w closed												-- Closed set with the word we just checked
+
+------------------ Functions dealing with user IO ------------------
+
+-- Get two words, run with them if we get them
+getTwoWords :: WordDictionary -> WordGraph -> IO ()
+getTwoWords dict graph = do
+	putStrLn "Enter two words: "												-- I can't get this to flush without putStrLn
+	typedLine <- getLine														-- Read the input and separate it into words
+	let ourWords = words typedLine
+	case ourWords of
+		[]			-> return ()												-- Program is done when they don't enter words
+		(x:y:z)		-> runWithTwoWords dict graph x y							-- Try the words they gave us (ignore extra)
+						>> getTwoWords dict graph
+		otherwise	-> putStrLn "Please enter two words."						-- Make them try again
+						>> getTwoWords dict graph
+										 
+-- Check that the two words are the same length and valid
+runWithTwoWords :: WordDictionary -> WordGraph -> String -> String -> IO ()
+runWithTwoWords dict graph one two | lenOne /= lenTwo	= putStrLn "Words must be the same length"
+	where
+		lenOne = length one
+		lenTwo = length two
+runWithTwoWords dict graph one two | wordOneBad			= putStrLn $ "Word '" ++ one ++ "' is not in the dictionary"											
+	where
+		wordOneBad = Set.notMember one dict
+runWithTwoWords dict graph one two | wordTwoBad			= putStrLn $ "Word '" ++ two ++ "' is not in the dictionary"
+	where
+		wordTwoBad = Set.notMember two dict
+runWithTwoWords dict graph one two | otherwise			= prettyPrintAnswer one two $ findPath one two dict graph
+
+-- Show the results we found
+prettyPrintAnswer :: String -> String -> Maybe [String] -> IO ()
+prettyPrintAnswer one two Nothing		= putStrLn $ "Couldn't find a path between '" ++ one ++ "' and '" ++ two ++ "'."
+prettyPrintAnswer one two (Just words)	= putStrLn $ intercalate " >> " words
+
+main = do
+	-- Load in the dictionary
 	
+	beforeDict <- getCPUTime
+	dict <- loadDictionary
+	let dictEntries = Set.size dict
+	putStrLn $ "Loaded the dictionary of " ++ show dictEntries ++ " words"
+	afterDict <- getCPUTime
+	let dictDiff = (fromIntegral (afterDict - beforeDict)) / (10^9)
+	putStrLn $ "Loaded the in " ++ show dictDiff ++ "ms"
+	
+	-- Now we'll setup the graph
+	
+	beforeGraph <- getCPUTime
+	let graph = createWordGraph dict
+	let graphEntries = Map.size graph
+	putStrLn $ "Generated the graph for " ++ show graphEntries ++ " words"
+	afterGraph <- getCPUTime
+	let graphDiff = (fromIntegral (afterGraph - beforeGraph)) / (10^9)
+	putStrLn $ "Generated in " ++ show graphDiff ++ "ms"
+	
+	-- Now we can do the main loop
+	
+	getTwoWords dict graph
+
