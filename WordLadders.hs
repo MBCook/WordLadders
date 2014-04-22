@@ -184,11 +184,11 @@ prettyPrintAnswer one two (Just words)	= putStrLn $ intercalate " >> " words
 timeAction :: String -> IO a -> IO a
 timeAction label io = do
 	startTime <- getCPUTime
-	result <- io
-	endTime <- seq result getCPUTime											-- Force io to be evaluated right here
+	result <- io														-- Save the results of the IO
+	endTime <- seq result getCPUTime									-- Force IO to be evaluated right before endTime is set
 	let timeDiff = (fromIntegral (endTime - startTime)) / (10^9)
 	putStrLn $ label ++ " " ++ show timeDiff ++ "ms"
-	return result																-- Return the result of IO
+	return result														-- Return the result of IO
 
 main = do
 	putStrLn "Program running."
