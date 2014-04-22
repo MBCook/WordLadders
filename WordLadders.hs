@@ -8,6 +8,7 @@ import System.CPUTime					-- So we can know how long things take
 import Data.List						-- We want foldl'
 import Data.Char						-- To get toLower and isSpace
 import Data.Maybe						-- To make Maybe handling easier
+import Control.Monad					-- For liftM
 import qualified Data.Set as Set		-- So we can make Sets
 import qualified Data.Map as Map		-- We also need to make Maps
 
@@ -171,33 +172,34 @@ runWithTwoWords dict graph one two | wordOneBad			= putStrLn $ "Word '" ++ one +
 runWithTwoWords dict graph one two | wordTwoBad			= putStrLn $ "Word '" ++ two ++ "' is not in the dictionary"
 	where
 		wordTwoBad = Set.notMember two dict
-runWithTwoWords dict graph one two | otherwise			= prettyPrintAnswer one two $ findPath one two dict graph
+runWithTwoWords dict graph one two | otherwise
+					= timeAction "Figured out answer in" . prettyPrintAnswer one two $ findPath one two dict graph
 
 -- Show the results we found
 prettyPrintAnswer :: String -> String -> Maybe [String] -> IO ()
 prettyPrintAnswer one two Nothing		= putStrLn $ "Couldn't find a path between '" ++ one ++ "' and '" ++ two ++ "'."
 prettyPrintAnswer one two (Just words)	= putStrLn $ intercalate " >> " words
 
+-- Time an action and print how long it took
+timeAction :: String -> IO a -> IO a
+timeAction label io = do
+	startTime <- getCPUTime
+	result <- io
+	endTime <- seq result getCPUTime											-- Force io to be evaluated right here
+	let timeDiff = (fromIntegral (endTime - startTime)) / (10^9)
+	putStrLn $ label ++ " " ++ show timeDiff ++ "ms"
+	return result																-- Return the result of IO
+
 main = do
+	putStrLn "Program running."
+	
 	-- Load in the dictionary
 	
-	beforeDict <- getCPUTime
-	dict <- loadDictionary
-	let dictEntries = Set.size dict
-	putStrLn $ "Loaded the dictionary of " ++ show dictEntries ++ " words"
-	afterDict <- getCPUTime
-	let dictDiff = (fromIntegral (afterDict - beforeDict)) / (10^9)
-	putStrLn $ "Loaded the in " ++ show dictDiff ++ "ms"
+	dict <- timeAction "Loaded the dictionary in" loadDictionary
 	
 	-- Now we'll setup the graph
 	
-	beforeGraph <- getCPUTime
-	let graph = createWordGraph dict
-	let graphEntries = Map.size graph
-	putStrLn $ "Generated the graph for " ++ show graphEntries ++ " words"
-	afterGraph <- getCPUTime
-	let graphDiff = (fromIntegral (afterGraph - beforeGraph)) / (10^9)
-	putStrLn $ "Generated in " ++ show graphDiff ++ "ms"
+	graph <- timeAction "Created the graph in " . liftM createWordGraph $ return dict	-- This 'return' feels odd to me
 	
 	-- Now we can do the main loop
 	
