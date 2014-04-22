@@ -20,7 +20,7 @@ type WordDictionary = Set.Set String
 loadDictionaryWords :: IO [String]
 loadDictionaryWords = do
 	fileText <- readFile "dictionary.txt"
-	return $ stripStrings $ lowercaseLines fileText		-- Why can't I use . instead of $?
+	return $ stripStrings . lowercaseLines $ fileText
 	where
 		stripStrings = map (takeWhile isAlpha)			-- Cut off the extra '\r's on the end of the strings
 		lowercaseLines = lines . map toLower			-- Convert the input to lower case and then from lines
