@@ -150,7 +150,8 @@ aStar endWord q@(n @ Node {word = w, currentCost = c}:ns) closed dict graph				-
 -- Get two words, run with them if we get them
 getTwoWords :: WordDictionary -> WordGraph -> IO ()
 getTwoWords dict graph = do
-	putStrLn "Enter two words: "												-- I can't get this to flush without putStrLn
+	putStr "Enter two words: "												-- I can't get this to flush without putStrLn
+	hFlush stdout
 	typedLine <- getLine														-- Read the input and separate it into words
 	let ourWords = words $ map toLower typedLine
 	case ourWords of
