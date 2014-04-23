@@ -129,7 +129,7 @@ aStar :: String -> OpenSet -> ClosedSet -> WordDictionary -> WordGraph -> Maybe 
 aStar endWord [] _ _ _	= Nothing														-- Couldn't find it, so nothing
 aStar endWord q@(n @ Node {word = w, currentCost = c}:ns) closed dict graph				-- Our queue still has stuff in it
 	| w == endWord			= Just $ reconstructPath n									-- Found the word, return the path
-	| neighborWords == []	= aStar endWord ns updatedClosed dict graph					-- Recurse knowing this word was a dead end
+	| null neighborWords	= aStar endWord ns updatedClosed dict graph					-- Recurse knowing this word was a dead end
 	| otherwise				= aStar endWord withNeighbors updatedClosed dict graph		-- Add the neighbors to the priority queue
 	where 
 		neighborWords = filter (flip Set.notMember closed) $ neighboringWords w dict	-- Unchecked neighboring words
