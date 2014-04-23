@@ -4,10 +4,11 @@
 -- Ported as my first Haskell program
 
 import System.IO						-- For file loading
-import System.CPUTime					-- So we can know how long things take
-import Data.List						-- We want foldl'
-import Data.Function					-- So we can use the 'on' function
-import Data.Char						-- To get toLower and isSpace
+import System.IO.Error(catchIOError)	-- To handle ^d input gracefully
+import System.CPUTime(getCPUTime)		-- So we can know how long things take
+import Data.List						-- We want foldl', insertBy, find, intercalate
+import Data.Function(on)				-- So we can use the 'on' function
+import Data.Char						-- To get toLower and isSpace, isAlpha
 import Data.Maybe						-- To make Maybe handling easier
 import qualified Data.Set as Set		-- So we can make Sets
 import qualified Data.Map as Map		-- We also need to make Maps
@@ -145,9 +146,9 @@ getTwoWords dict graph = do
 	putStr "Enter two words: "
 	hFlush stdout																-- Flush that line before we ask for input
 	
-	typedLine <- getLine														-- Read the input and separate it into words
+	typedLine <- catchIOError getLine (\e -> return "")							-- Read the input. If it's ^d, pretend it was blank
 	
-	let ourWords = words $ map toLower typedLine
+	let ourWords = words $ map toLower typedLine								-- Make the line lowercase, split into words
 	
 	case ourWords of
 		[]			-> return ()												-- Program is done when they don't enter words
