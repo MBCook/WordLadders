@@ -97,7 +97,7 @@ type ClosedSet = Set.Set String
 findPath :: String -> String -> WordDictionary -> WordGraph -> Maybe [String]
 findPath startWord endWord dict graph = aStar endWord openSet closedSet dict graph
 	where
-		ourNode = Node startWord 0 (roughDistance startWord endWord) Nothing
+		ourNode = Node startWord 0 (roughDistance startWord endWord) Nothing		-- Current cost 0, estimated cost to target
 		openSet = [ourNode]
 		closedSet = Set.empty
 
@@ -144,8 +144,11 @@ getTwoWords :: WordDictionary -> WordGraph -> IO ()
 getTwoWords dict graph = do
 	putStr "Enter two words: "
 	hFlush stdout																-- Flush that line before we ask for input
+	
 	typedLine <- getLine														-- Read the input and separate it into words
+	
 	let ourWords = words $ map toLower typedLine
+	
 	case ourWords of
 		[]			-> return ()												-- Program is done when they don't enter words
 		(x:y:z)		-> runWithTwoWords dict graph x y							-- Try the words they gave us (ignore extra)
@@ -155,16 +158,9 @@ getTwoWords dict graph = do
 										 
 -- Check that the two words are the same length and valid
 runWithTwoWords :: WordDictionary -> WordGraph -> String -> String -> IO ()
-runWithTwoWords dict graph one two | lenOne /= lenTwo	= putStrLn "Words must be the same length"
-	where
-		lenOne = length one
-		lenTwo = length two
-runWithTwoWords dict graph one two | wordOneBad			= putStrLn $ "Word '" ++ one ++ "' is not in the dictionary"											
-	where
-		wordOneBad = Set.notMember one dict
-runWithTwoWords dict graph one two | wordTwoBad			= putStrLn $ "Word '" ++ two ++ "' is not in the dictionary"
-	where
-		wordTwoBad = Set.notMember two dict
+runWithTwoWords dict graph one two | ((/=) `on` length)	one two		= putStrLn "Words must be the same length"
+runWithTwoWords dict graph one two | Set.notMember one dict			= putStrLn $ "Word '" ++ one ++ "' is not in the dictionary"
+runWithTwoWords dict graph one two | Set.notMember two dict			= putStrLn $ "Word '" ++ two ++ "' is not in the dictionary"
 runWithTwoWords dict graph one two | otherwise
 					= timeAction "Figured out answer in" . prettyPrintAnswer one two $ findPath one two dict graph
 
