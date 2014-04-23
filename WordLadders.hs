@@ -6,6 +6,7 @@
 import System.IO						-- For file loading
 import System.CPUTime					-- So we can know how long things take
 import Data.List						-- We want foldl'
+import Data.Function					-- So we can use the 'on' function
 import Data.Char						-- To get toLower and isSpace
 import Data.Maybe						-- To make Maybe handling easier
 import qualified Data.Set as Set		-- So we can make Sets
@@ -73,14 +74,6 @@ data Node = Node {
 fullCost :: Node -> Int
 fullCost a = currentCost a + guessedCost a
 
--- Make it so we can order Nodes
-instance Ord Node where
-	compare a b = compare (fullCost a) (fullCost b)
-
--- And to do that, we must be able to check equality on Nodes
-instance Eq Node where
-	(==) a b = (word a) == (word b)
-
 -- Give a basic estimate of the 'distance' between two words based on characters that differ
 roughDistance :: String -> String -> Int
 roughDistance [] _		= 0								-- When string one is done, we're done
@@ -112,16 +105,16 @@ findPath startWord endWord dict graph = aStar endWord openSet closedSet dict gra
 -- If it's new, insert it. If it's a duplicate, replace the old node if the cost is lower
 updateOpenSet :: String -> Int -> OpenSet -> Node -> OpenSet
 updateOpenSet endWord curretnCost open node 
-	| existingNode == Nothing								-- Never seen it, add it to the queue in the right place
-			= insert node open
+	| isNothing existingNode								-- Never seen it, add it to the queue in the right place
+			= insertBy (compare `on` fullCost) node open
 	| tentativeCost < currentCost (fromJust existingNode)	-- We cost less, swap us in
-			= insert node withoutExisting
+			= insertBy (compare `on` fullCost) node withoutExisting
 	| otherwise												-- We cost more, don't modify the open set
 			= open
 	where
-		existingNode = find (node ==) open					-- Lowest scoring version of our word
-		withoutExisting = filter (node /=) open				-- Queue without the word in question
-		tentativeCost = currentCost node + 1				-- Since we move by one letter, cost just increments
+		existingNode = find (((==) `on` word) $ node) open		-- Lowest scoring version of our word
+		withoutExisting = filter (((/=) `on` word) $ node) open	-- Queue without the word in question
+		tentativeCost = currentCost node + 1					-- Since we move by one letter, cost just increments
 
 -- Convert a list of words into a list of Nodes given the endWord, neighboring words, and the current node
 neighboringNodes :: String -> [String] -> Node -> [Node]
