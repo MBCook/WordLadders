@@ -8,7 +8,6 @@ import System.CPUTime					-- So we can know how long things take
 import Data.List						-- We want foldl'
 import Data.Char						-- To get toLower and isSpace
 import Data.Maybe						-- To make Maybe handling easier
-import Control.Monad					-- For liftM
 import qualified Data.Set as Set		-- So we can make Sets
 import qualified Data.Map as Map		-- We also need to make Maps
 
@@ -200,7 +199,7 @@ main = do
 	
 	-- Now we'll setup the graph
 	
-	graph <- timeAction "Created the graph in " . liftM createWordGraph $ return dict	-- This 'return' feels odd to me
+	graph <- timeAction "Created the graph in " . return $ createWordGraph dict
 	
 	-- Now we can do the main loop
 	
